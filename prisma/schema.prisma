@@ -1,0 +1,99 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../prisma/generated"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  monthlyUsages MonthlyUsage[]
+  bundles       SubscriptionBundle[]
+  chatMessages  ChatMessage[]
+
+  @@map("users")
+}
+
+model MonthlyUsage {
+  id               String   @id @default(uuid())
+  userId           String   @map("user_id")
+  year             Int
+  month            Int
+  freeMessagesUsed Int      @default(0) @map("free_messages_used")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, year, month])
+  @@index([userId, year, month])
+  @@map("monthly_usages")
+}
+
+enum BundleTier {
+  basic
+  pro
+  enterprise
+}
+
+enum BillingCycle {
+  monthly
+  yearly
+}
+
+enum BundleStatus {
+  active
+  inactive
+  cancelled
+}
+
+model SubscriptionBundle {
+  id          String       @id @default(uuid())
+  userId      String       @map("user_id")
+  tier        BundleTier
+  billingCycle BillingCycle @map("billing_cycle")
+  maxMessages Int?         @map("max_messages")
+  messagesUsed Int         @default(0) @map("messages_used")
+  price       Int
+  startDate   DateTime     @map("start_date")
+  endDate     DateTime     @map("end_date")
+  renewalDate DateTime?    @map("renewal_date")
+  autoRenew   Boolean      @default(true) @map("auto_renew")
+  status      BundleStatus @default(active)
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chatMessages ChatMessage[]
+
+  @@index([userId, status])
+  @@map("subscription_bundles")
+}
+
+model ChatMessage {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  question    String
+  answer      String
+  tokensUsed  Int      @map("tokens_used")
+  bundleId    String?  @map("bundle_id")
+  usedFreeQuota Boolean @default(false) @map("used_free_quota")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user   User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bundle SubscriptionBundle? @relation(fields: [bundleId], references: [id])
+
+  @@map("chat_messages")
+}
